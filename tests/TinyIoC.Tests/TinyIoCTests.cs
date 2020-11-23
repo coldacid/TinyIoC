@@ -15,7 +15,10 @@
 
 #region Preprocessor Directives
 
-#define RESOLVE_OPEN_GENERICS               // Platform supports resolving open generics
+// Skip open generics tests on platforms that don't support it
+#if PocketPC || NETFX_CORE
+#undef RESOLVE_OPEN_GENERICS
+#endif
 
 #endregion
 
@@ -3415,6 +3418,35 @@ namespace TinyIoC.Tests
 
             var result = child.Resolve<IThing<object>>();
              
+            Assert.IsInstanceOfType(result, typeof(DefaultThing<object>));
+        }
+#endif
+
+#if RESOLVE_OPEN_GENERICS
+        [TestMethod]
+        public void Resolve_RegisteredOpenGeneric_CanGetGenericParamAsRequestedType()
+        {
+            // container.Register(
+            //     typeof(ILogger<>),
+            //     (c, p) =>
+            //     {
+            //         var type = (p["__requestedType"] as Type)?.GenericTypeArguments[0];
+            //         Debug.Assert(type != null, nameof(type) + " != null");
+            //         return c.Resolve<ILoggerFactory>().CreateLogger(type);
+            //     });
+
+            var container = UtilityMethods.GetContainer();
+            container.Register(typeof(IThing<>), (c, parameters) =>
+            {
+                Assert.IsNotNull(parameters["__requestedType"]);
+                var genericTypeArguments = (parameters["__requestedType"] as Type).GenericTypeArguments;
+                Assert.IsTrue(genericTypeArguments.Length > 0);
+                var returnType = typeof(DefaultThing<>).MakeGenericType(genericTypeArguments);
+                return Activator.CreateInstance(returnType);
+            });
+
+            var result = container.Resolve<IThing<object>>();
+
             Assert.IsInstanceOfType(result, typeof(DefaultThing<object>));
         }
 #endif
